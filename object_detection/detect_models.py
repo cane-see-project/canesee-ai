@@ -1,7 +1,6 @@
-import time
 import tflite_runtime.interpreter as tflite
 import cv2
-# import re
+import re
 import numpy as np
 
 
@@ -31,9 +30,8 @@ def _object_position(width, height, cx, cy):
     return i, j
 
 
-def _getObjects(image, results, size):
+def _getObjects(results, size):
 
-    result_size = len(results)
     detected_array = []
     position = [["بأعلى اليسار", "بالأعلى", "بأعلى اليمين"],
                 ["باليسار", "بالوسط", "باليمين"],
@@ -51,25 +49,27 @@ def _getObjects(image, results, size):
         centroidX = (xmax + xmin) / 2
         centroidY = (ymax + ymin) / 2
         x, y = _object_position(size[0], size[1], centroidX, centroidY)
-        detected_array.append( (labels[int( obj['class_id']) ], position[y][x]) )
+        label = labels[ obj['class_id'] ]
+        if label != '0':
+            detected_array.append((label, position[y][x]))
         # print("display :: ", detected_array[idx], " : ",str(round(obj['score'] * 100, 2)) + "%")
         # print("display :: ", detected_array[idx], "  ", obj['label'])
 
     return detected_array
 
 
-# def _load_labels(path):
-#     """Loads the labels file. Supports files with or without index numbers."""
-#     with open(path, 'r', encoding='utf-8') as f:
-#         lines = f.readlines()
-#         labels = {}
-#         for row_number, content in enumerate(lines):
-#             pair = re.split(r'[:\s]+', content.strip(), maxsplit=1)
-#             if len(pair) == 2 and pair[0].strip().isdigit():
-#                 labels[int(pair[0])] = pair[1].strip()
-#             else:
-#                 labels[row_number] = pair[0].strip()
-#     return labels
+def _load_labels(path):
+    """Loads the labels file. Supports files with or without index numbers."""
+    with open(path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        labels = {}
+        for row_number, content in enumerate(lines):
+            pair = re.split(r'[:\s]+', content.strip(), maxsplit=1)
+            if len(pair) == 2 and pair[0].strip().isdigit():
+                labels[int(pair[0])] = pair[1].strip()
+            else:
+                labels[row_number] = pair[0].strip()
+    return labels
 
 
 def _set_input_tensor(image):
@@ -105,21 +105,10 @@ def init():
 
     global interpreter, labels
     # define the labels
-    labels = ['شخص', 'دراجة', 'سيارة', 'دراجات نارية', 'طائرة', 'حافلة', 'قطار', 'شاحنة نقل',
-              'قارب', 'إشارة ضوئية', 'صنبور الاطفاء','فاضى ', 'لافتة توقف', 'عداد موقف السيارات', 'مقعد', 'طائر', 'قط',
-              'الكلب','حصان', 'خروف', 'بقرة', 'فيل', 'دب', 'الحمار الوحشي', 'زرافة',"فاضى",
-              'حقيبة ظهر', 'مظلة',"فاضى","فاضى", 'حقيبة يد', 'ربطة عنق', 'حقيبة سفر', 'الطبق الطائر', 'زحلوقة', 'لوح التزلج',
-              'الكرة الرياضية', 'طائرة ورقية', 'مضرب البيسبول', 'قفاز البيسبول', 'لوح تزلج', 'مزلجة', 'مضرب التنس', 'زجاجة',"فاضى",
-              'كأس نبيذ', 'كوب', 'فرع', 'سكين', 'ملعقة', 'وعاء', 'موز', 'تفاحة',
-              'ساندويتش', 'البرتقالي', 'بروكلي', 'جزرة', 'نقانق', 'بيتزا', 'الدونات', 'كيك',
-              'كرسي', 'كنبة', 'النبات المحفوظ بوعاء', 'السرير',"فاضى", 'طاولة الطعام',"فاضى","فاضى", 'الحمام', 'التلفزيون', 'حاسوب محمول',
-              'الفأر', 'التحكم عن بعد', 'لوحة المفاتيح', 'الهاتف الخلوي', 'الميكروويف', 'فرن', 'محمصة خبز', 'مكتب المدير',
-              'ثلاجة',"فاضى", 'كتاب', 'ساعة حائط',  'مزهرية', 'مقص', 'دمية دب', 'مجفف شعر', 'فرشاة الأسنان']
-
-    # labels = load_labels("labelmap.txt")
+    labels = _load_labels("labelmap.txt")
 
     # Load TFLite model and allocate tensors.
-    interpreter = tflite.Interpreter(model_path="object_detection/detect.tflite") # python relative paths suck.
+    interpreter = tflite.Interpreter(model_path="ssd_model.tflite")
     interpreter.allocate_tensors()
 
 
@@ -127,7 +116,7 @@ def detect(image):
 
     global labels
     global interpreter
-    threshold = 0.4
+    threshold = 0.45
     # define the expected input shape for the model
     input_w, input_h = 300, 300
 
@@ -157,7 +146,7 @@ def detect(image):
             results.append(result)
 
     # Perform inference
-    detected_array = _getObjects(image, results, (image_w, image_h))
+    detected_array = _getObjects(results, (image_w, image_h))
 
     return detected_array
 
@@ -165,10 +154,7 @@ def detect(image):
 if __name__ == "__main__":
 
     init()
-    image = cv2.imread("photos/street5.png")
+    image = cv2.imread("photos/park.jpg")
     image_array = np.asarray(image)
-    t1 = time.time()
     detected_array = detect(image_array)
     print(detected_array)
-    t2 = time.time()
-    print("time : ", t2-t1)
