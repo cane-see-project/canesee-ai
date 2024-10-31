@@ -4,5 +4,5 @@ numpy==1.18.1
 opencv-python-headless==4.1.0.25
 pkg-resources==0.0.0
 pyserial==3.4
-PyYAML==5.3
+PyYAML==5.4
 scenedetect==0.5.1.1
